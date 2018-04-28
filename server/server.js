@@ -11,9 +11,9 @@ var app = express();
 app.use(bodyParser.json());
 
 app.post('/todos', async (req,res)=>{
-var todo = new Todo({
-  text:req.body.text
-});
+  var todo = new Todo({
+    text:req.body.text
+  });
 try{
   const doc = await todo.save();
    res.send(doc);
@@ -36,6 +36,7 @@ app.get('/todos/:id',async (req,res)=>{
     return res.status(404).send();
   }
   try{
+
       const todo = await Todo.findById(id);
       if(!todo){
         return res.status(404).send();
@@ -45,24 +46,29 @@ app.get('/todos/:id',async (req,res)=>{
           return res.status(404).send();
         }
 });
-app.delete('/todos/:id',async (req,res)=>{
-  var id = req.params.id;
-  if(!ObjectID.isValid(id)){
+app.delete('/todos/:id', async (req, res) => {
+  const id = req.params.id;
+
+  if (!ObjectID.isValid(id)) {
     return res.status(404).send();
   }
-  try{
-      const todo = await Todo.findByIdAndRemove(id);
-      if(!todo){
-        return res.status(404).send();
-      }
-       res.send({todo});
-        }catch(e){
-          return res.status(404).send();
-        }
 
+  try {
+    const todo = await Todo.findOneAndRemove({
+      _id: id,
+      _creator: req.user._id
+    });
+    if (!todo) {
+      return res.status(404).send();
+    }
+
+    res.send({todo});
+  } catch (e) {
+    res.status(400).send();
+  }
 });
 
-app.patch('/todos/:id', (req, res) => {
+app.patch('/todos/:id', async (req, res) =>  {
   var id = req.params.id;
   var body = _.pick(req.body, ['text', 'completed']);
   if (!ObjectID.isValid(id)) {
@@ -76,15 +82,29 @@ app.patch('/todos/:id', (req, res) => {
     body.createdAt = null;
   }
 
-  Todo.findByIdAndUpdate(id, {$set: body}, {new: true}).then((todo) => {
-    if (!todo) {
-      return res.status(404).send();
+try{
+  var todo =  await Todo.findByIdAndUpdate(id, {$set: body}, {new: true})
+  if (!todo) {
+    return res.status(404).send();
+  }
+  res.send({todo});
+}
+    catch(e){
+        res.status(400).send();
     }
+});
 
-    res.send({todo});
-  }).catch((e) => {
-    res.status(400).send();
-  })
+app.post('/users',async (req,res)=>{
+
+  try{
+    var body = _.pick(req.body,['email','password']);
+    var user = new User(body);
+   var u = await user.save();
+    res.send(u);
+  }catch(e){
+    res.status(400).send(e);
+  }
+
 });
 
 app.listen(port,()=>{
